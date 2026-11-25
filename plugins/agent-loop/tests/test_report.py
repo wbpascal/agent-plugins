@@ -263,6 +263,54 @@ class ReportTest(unittest.TestCase):
             report.init(SimpleNamespace(dir=d, base="main", host=None, session=None))
         self.assertIn(f"Worktree: {path.as_posix()}", buf.getvalue())
 
+    def test_ci(self):
+        link = "https://github.com/o/r/actions/runs/11/job/22"
+        red = json.dumps([{"name": "test", "bucket": "fail", "link": link}, {"name": "lint", "bucket": "pass", "link": ""}])
+        green = json.dumps([{"name": "test", "bucket": "pass", "link": link}])
+        log = "test\tRun tests\t2026-01-01T10:00:00.1Z \x1b[31mFAIL: test_x\x1b[0m\n" * 100
+        calls = []
+
+        def ci(states, unrelated=False):
+            def fake(cmd, **kw):
+                calls.append(cmd)
+                if cmd[:3] == ["gh", "pr", "checks"] and "--json" in cmd:
+                    out = states.pop(0)
+                    return SimpleNamespace(stdout=out, stderr="" if out else "no checks reported", returncode=0)
+                return SimpleNamespace(stdout=log if "view" in cmd else "", stderr="", returncode=0)
+            buf = io.StringIO()
+            with mock.patch.object(report.subprocess, "run", side_effect=fake), \
+                 mock.patch.object(report.time, "sleep"), contextlib.redirect_stdout(buf):
+                report.ci(SimpleNamespace(dir=self.run, pr="PR", unrelated=unrelated, wait=0))
+            return buf.getvalue()
+
+        def outcome():
+            with contextlib.redirect_stdout(io.StringIO()) as buf:
+                report.report(SimpleNamespace(dir=self.run, outcome="done"))
+            return buf.getvalue()
+
+        # Red, then green after a fix round.
+        out = ci([red])
+        self.assertEqual(out, f"CI: red test\nLog: {(self.run / 'ci-1.md').as_posix()}\n")
+        text = (self.run / "ci-1.md").read_text()
+        self.assertIn(link, text)
+        self.assertEqual(text.count("FAIL: test_x"), 60)
+        self.assertNotIn("\x1b", text)
+        self.assertIn("outcome done, CI red: [test](" + link + ")", outcome())
+        self.assertEqual(ci([green]), "CI: green\n")
+        self.assertIn("**Outcome:** done, CI green", outcome())
+
+        # Red twice: the second log gets the next number.
+        self.assertIn("Log: " + (self.run / "ci-2.md").as_posix(), ci([red]))
+        self.assertIn("Log: " + (self.run / "ci-3.md").as_posix(), ci([red]))
+        # Not caused by this change: rerun once, never twice.
+        calls.clear()
+        ci([red, red], unrelated=True)
+        ci([red, red], unrelated=True)
+        self.assertEqual(sum(c[:3] == ["gh", "run", "rerun"] for c in calls), 1)
+        self.assertIn("CI red, not caused by this change: [test]", outcome())
+        self.assertEqual(ci([""]), "CI: none\n")
+        self.assertIn("CI no checks", outcome())
+
     def test_prompt_report_heading(self):
         d = self.run.with_name("fix-parsing")
         d.mkdir()

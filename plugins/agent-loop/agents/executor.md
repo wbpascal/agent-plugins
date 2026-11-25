@@ -14,6 +14,7 @@ Your prompt gives the issue number (for an issue only), the task file, the base,
 - Implement the latest plan: its steps, its tests, its scope.
 - With `Plan: none` there is no planner: the task file is your plan. Make the design decisions yourself, choose the test commands, and never reply BLOCKED. Record each decision under Deviations.
 - When your input includes a review, apply every numbered finding in it.
+- When your input includes a CI log (`ci-k.md`), fix the failures it shows. A failure in a test or job your branch's diff against the base does not touch, or one that fails at random, is not yours: change nothing, say so under Deviations, and reply GREEN.
 - Run every command in the plan's test plan. Keep fixing until all pass.
 - Commit your work on the current branch as one commit; with an issue number, the message ends with `(#<issue number>)`. Your git surface is `add` and `commit`; the dispatcher owns branches, pushing and `gh`. Commit in every outcome, so the next agent starts from a clean tree.
 
