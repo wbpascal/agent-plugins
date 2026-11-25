@@ -29,9 +29,9 @@ These were decided with the user; changing one is a design change, so raise it f
 ## Coupling to keep in sync
 
 - Keep reply words in sync across `skills/run/SKILL.md`, the last line of each `agents/*.md`, exec and review headers (`STATUS:` / `VERDICT:`), and `report.py` (`REPLY`).
-- File names `plan-k.md`, `exec-k.md`, `review-k.md`, `pr-body.md` are shared by the skill, the agents and `report.py` (`RESULT_FILE`).
+- File names `plan-k.md`, `exec-k.md`, `review-k.md`, `ci-k.md`, `pr-body.md` are shared by the skill, the agents and `report.py` (`RESULT_FILE`).
 - The task file is `issue.json` (written by `report.py init`) or `task.md` (written by the dispatcher). The agent prompt lines `Issue number:`, `Task:`, `Base:` and `Plan: none` are shared by the skill and the agents.
-- `report.py init` prints `Dir:`, `Base:`, in a linked worktree `Worktree:`, and in an Orca worktree `Orca: yes`; `report.py worktree` prints `Worktree:`, `Herdr:` and `Space:`, or in Orca `Orca: create` with `Start:`, or `Worktree:` with `Orca: launch`. The skill reads these lines.
+- `report.py init` prints `Dir:`, `Base:`, in a linked worktree `Worktree:`, and in an Orca worktree `Orca: yes`; `report.py worktree` prints `Worktree:`, `Herdr:` and `Space:`, or in Orca `Orca: create` with `Start:`, or `Worktree:` with `Orca: launch`.; `report.py ci` prints `CI:` and, on red, `Log:`. The skill reads these lines.
 - `report.py worktree` mirrors the path layout of Herdr's shipped `worktree` mod (`<worktrees.directory>/<repo>/<branch with / as ->`), so the space nests under its repo.
 - Per-role models live in the same agent file: `model:` for Claude Code, `models:`/`modelPolicy:` for Copilot.
 - `report.py` matches Claude Code metadata `agentType` and Copilot `subagent.started` `agentName` against `ROLES`.

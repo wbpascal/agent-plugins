@@ -3,7 +3,8 @@
 
 init      prepare the task directory and record the run start in <dir>/run.json
 worktree  find or create the git worktree for a run branch (in Orca: say whether Orca creates or has it)
-report  generate the markdown token/cost report from the host's transcripts
+ci        wait for an issue run's PR checks, record their state, write the failed jobs' trimmed log
+report    generate the markdown token/cost report from the host's transcripts
 """
 import argparse
 import json
@@ -11,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,6 +24,8 @@ KINDS = ("input", "cache_write_5m", "cache_write_1h", "cache_read", "output")
 COPILOT_TOKENS = {"input": "inputTokens", "cache_write": "cacheWriteTokens", "cache_read": "cacheReadTokens",
                   "output": "outputTokens", "reasoning": "reasoningTokens"}
 REPLY = re.compile(r"^(?:PLAN|GREEN|RED|BLOCKED|DONE|FIX|REPLAN)(?:[^\S\r\n]+[^\r\n]*)?$", re.M)
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+JOB_LINK = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 SESSION_ENV = {"claude": "CLAUDE_SESSION_ID", "copilot": "COPILOT_AGENT_SESSION_ID"}
 
 
@@ -147,6 +151,7 @@ def init(a):
     d.mkdir(parents=True, exist_ok=True)
     if issue is not None:
         (d / "issue.json").write_bytes(issue)
+    run.pop("ci", None)
     run.update(host=host, base=base, kind="issue" if issue is not None else "prompt")
     run["sessions"].append({"id": session, "start": start})
     if host == "claude":
@@ -222,6 +227,65 @@ def worktree(a):
         space = next((s["id"] for s in spaces if s.get("folder") and Path(s["folder"]) == Path(path)), None)
         if space:
             print(f"Space: {space}")
+
+
+def checks(pr):
+    out = subprocess.run(["gh", "pr", "checks", pr, "--json", "name,bucket,link"],
+                         capture_output=True, encoding="utf-8")
+    if not out.stdout.strip():
+        if "no checks" in out.stderr:
+            return []
+        raise SystemExit(out.stderr.strip() or "gh pr checks failed")
+    return json.loads(out.stdout)
+
+
+def trim_log(text, keep=60):
+    """Last lines of `gh run view --log-failed`, without the job/step columns, timestamps and colours."""
+    lines = [re.sub(r"^\d{4}-\S+Z ", "", ANSI.sub("", raw.split("\t", 2)[-1])).rstrip() for raw in text.splitlines()]
+    return "\n".join([x for x in lines if x][-keep:])
+
+
+def ci(a):
+    d = Path(a.dir)
+    f = d / "run.json"
+    run = json.loads(f.read_text())
+    if a.unrelated:
+        done = run.setdefault("reruns", [])
+        for c in checks(a.pr):
+            m = JOB_LINK.search(c.get("link") or "")
+            if c["bucket"] in ("fail", "cancel") and m and m[1] not in done:
+                subprocess.run(["gh", "run", "rerun", m[1], "--failed"])
+                done.append(m[1])
+        f.write_text(json.dumps(run, indent=2))
+    time.sleep(a.wait)  # checks of a fresh push or rerun take a moment to register
+    subprocess.run(["gh", "pr", "checks", a.pr, "--watch", "--interval", "30"],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    rows = checks(a.pr)
+    red = [{"name": c["name"], "link": c.get("link") or ""} for c in rows if c["bucket"] in ("fail", "cancel")]
+    run["ci"] = {"state": "red" if red else "green" if rows else "none", "jobs": red, "unrelated": a.unrelated}
+    f.write_text(json.dumps(run, indent=2))
+    if not red:
+        print(f"CI: {run['ci']['state']}")
+        return
+    out = [f"# Failed CI checks on {a.pr}", ""]
+    for j in red:
+        m = JOB_LINK.search(j["link"])
+        log = subprocess.run(["gh", "run", "view", "--job", m[2], "--log-failed"], capture_output=True,
+                             encoding="utf-8", errors="replace").stdout if m else ""
+        out += [f"## {j['name']}", "", j["link"], "", "```text", trim_log(log) or "(no log)", "```", ""]
+    k = len(list(d.glob("ci-*.md"))) + 1
+    log = d / f"ci-{k}.md"
+    log.write_text("\n".join(out), encoding="utf-8")
+    print(f"CI: red {', '.join(j['name'] for j in red)}\nLog: {log.as_posix()}")
+
+
+def ci_line(state):
+    if not state:
+        return None
+    if state["state"] != "red":
+        return "green" if state["state"] == "green" else "no checks"
+    jobs = ", ".join(f"[{j['name']}]({j['link']})" if j["link"] else j["name"] for j in state["jobs"])
+    return f"red, not caused by this change: {jobs}" if state["unrelated"] else f"red: {jobs}"
 
 
 def collect(run, prices):
@@ -369,7 +433,9 @@ def report(a):
     agents = [c for c in calls if c["role"] != "dispatcher"]
 
     title = f"issue #{d.resolve().name}" if run.get("kind", "issue") == "issue" else f"prompt {d.resolve().name}"
-    out = [f"## Agent loop report: {title}", "", f"**Outcome:** {a.outcome}", "", "### Timeline", ""]
+    state = ci_line(run.get("ci"))
+    outcome = f"{a.outcome}, CI {state}" if state else a.outcome
+    out = [f"## Agent loop report: {title}", "", f"**Outcome:** {outcome}", "", "### Timeline", ""]
     seen, rows = {}, []
     i = 0
     for c in calls if copilot else agents:
@@ -407,7 +473,7 @@ def report(a):
         note = "Cost is an API-equivalent estimate at list prices."
     out += ["", f"{note} The dispatcher's calls that post this report are not counted.", ""]
     n = sum(grand[k] for k in kinds if k != "reasoning")
-    out.append(f"Total: {price}, {n:,} tokens, {len(agents)} agent calls, outcome {a.outcome}")
+    out.append(f"Total: {price}, {n:,} tokens, {len(agents)} agent calls, outcome {outcome}")
     if getattr(a, "out", None):
         Path(a.out).write_text("\n".join(out) + "\n", encoding="utf-8")
         print("\n".join(out) if getattr(a, "print", False) else out[-1])
@@ -431,6 +497,13 @@ if __name__ == "__main__":
     w.add_argument("--branch", required=True)
     w.add_argument("--base", help="start point when the branch does not exist yet")
     w.set_defaults(fn=worktree)
+    c = sub.add_parser("ci")
+    c.add_argument("--dir", required=True)
+    c.add_argument("--pr", required=True)
+    c.add_argument("--unrelated", action="store_true",
+                   help="rerun the failed jobs once; what stays red is not caused by this change")
+    c.add_argument("--wait", type=int, default=30, help=argparse.SUPPRESS)
+    c.set_defaults(fn=ci)
     r = sub.add_parser("report")
     r.add_argument("--dir", required=True)
     r.add_argument("--outcome", required=True)

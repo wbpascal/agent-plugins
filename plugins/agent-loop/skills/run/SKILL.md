@@ -118,6 +118,7 @@ Issue mode, outcome `done` (the reviewer has written `D/pr-body.md`):
 git push -u origin agent/issue-N
 gh pr create --base BASE --head agent/issue-N --title '<issue title> (#N)' --body-file D/pr-body.md
 (stack the PR, below)
+(CI, below)
 REPORT report --dir D --outcome done --out D/report.md
 gh pr comment PR_URL --body-file D/report.md
 git switch BASE   (skip when WT is set)
@@ -133,6 +134,14 @@ gh issue comment N --body-file D/report.md
 Get the issue title with `gh issue view N --json title -q .title`; escape it for the shell. Use the URL from `gh pr create` as `PR_URL`, its number as `PR`.
 
 Stack the PR: run `gh pr list --head BASE --state open --json number` again. With exactly one PR, `BASE_PR`, find its stack with `gh api 'repos/{owner}/{repo}/stacks?pull_request=BASE_PR'`. In a stack numbered `S`: `gh api -X POST repos/{owner}/{repo}/stacks/S/add -F 'pull_requests[]=PR'`. In none: `gh api -X POST repos/{owner}/{repo}/stacks -F 'pull_requests[]=BASE_PR' -F 'pull_requests[]=PR'`. With several PRs, or when a call fails, warn the user and go on; the PR stays unstacked against `BASE`. With none, do nothing.
+
+CI: run `REPORT ci --dir D --pr PR_URL` with the longest timeout your shell tool allows; if it is cut off, run it again. It waits for the PR's checks and prints `CI: none`, `CI: green`, or `CI: red <jobs>` and `Log: L`. On red, at most 2 rounds: note `git rev-parse HEAD`, then spawn the executor as in the loop (next call number, outside the `P` cap) with Read: latest plan, `L`. Then:
+
+- HEAD moved: `git push`, and run `REPORT ci` again.
+- HEAD unchanged and reply `GREEN` (the failure is not caused by this change): run `REPORT ci --dir D --pr PR_URL --unrelated` once, and stop.
+- Otherwise: stop.
+
+`REPORT report` names the final CI state; when it is red, tell the user the failing jobs.
 
 Prompt mode, every outcome: run `REPORT report --dir D --outcome OUTCOME --out D/report.md --print`. The commits stay on the current branch.
 
