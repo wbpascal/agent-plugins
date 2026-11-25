@@ -7,6 +7,7 @@ A marketplace of plugins in `plugins/<name>/`, each one plugin for both hosts, C
 Before working on a plugin, read its `AGENTS.md`:
 
 - `plugins/agent-loop/AGENTS.md`
+- `plugins/proxmox/AGENTS.md`
 
 ## Working here
 

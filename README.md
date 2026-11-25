@@ -5,6 +5,7 @@ A marketplace of plugins for Claude Code and GitHub Copilot (CLI and VS Code).
 | Plugin | What it does |
 | --- | --- |
 | [agent-loop](plugins/agent-loop/README.md) | Works one GitHub issue or prompt through planner, executor and reviewer agents. |
+| [proxmox](plugins/proxmox/README.md) | Inspects Proxmox VE clusters read-only, through Proxmox Datacenter Manager where one exists. |
 
 ## Install
 

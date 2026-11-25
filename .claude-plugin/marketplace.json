@@ -7,6 +7,11 @@
       "name": "agent-loop",
       "source": "./plugins/agent-loop",
       "description": "One agent loop per GitHub issue: planner, executor, reviewer."
+    },
+    {
+      "name": "proxmox",
+      "source": "./plugins/proxmox",
+      "description": "Read-only inspection of Proxmox VE clusters, through Proxmox Datacenter Manager where one exists."
     }
   ]
 }

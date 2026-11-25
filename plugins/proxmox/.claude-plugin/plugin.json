@@ -1,0 +1,5 @@
+{
+  "name": "proxmox",
+  "description": "Read-only inspection of Proxmox VE clusters, through Proxmox Datacenter Manager where one exists.",
+  "author": { "name": "Pascal Wiedenbeck" }
+}

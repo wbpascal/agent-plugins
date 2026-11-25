@@ -1,0 +1,19 @@
+# Settings for the proxmox plugin. This file holds API token secrets: keep it private.
+# Format and token setup: https://github.com/wbpascal/agent-plugins/blob/master/plugins/proxmox/README.md#settings
+
+# Proxmox Datacenter Manager. Delete this table if you have none.
+[pdm]
+urls = ["https://pdm.example.com:8443"]
+token_id = "ai@pdm!analysis"
+secret = "PASTE-SECRET-HERE"
+# Only for a self-signed certificate: its SHA-256 fingerprint.
+# fingerprints = ["AB:CD:EF:..."]
+
+# One table per cluster or standalone node, named after its PDM remote id.
+# `proxmox.py discover` prints these tables for you once [pdm] or one cluster works.
+[clusters.example]
+urls = ["https://pve1.example.com:8006", "https://pve2.example.com:8006"]
+token_id = "ai@pve!analysis"
+secret = "PASTE-SECRET-HERE"
+# One fingerprint per node, for self-signed certificates.
+# fingerprints = ["AB:CD:EF:...", "01:23:45:..."]
