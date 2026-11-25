@@ -5,7 +5,7 @@
   "plugins": [
     {
       "name": "agent-loop",
-      "source": "./",
+      "source": "./plugins/agent-loop",
       "description": "One agent loop per GitHub issue: planner, executor, reviewer."
     }
   ]
