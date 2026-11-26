@@ -5,7 +5,7 @@ One agent loop works one task through planner, executor and reviewer agents unti
 ## Language
 
 **Host**:
-The agent runtime the plugin runs inside: Claude Code or GitHub Copilot (CLI and VS Code). One plugin serves every host.
+The agent runtime the plugin runs inside: Claude Code or GitHub Copilot (CLI, VS Code and the Copilot app). One plugin serves every host.
 _Avoid_: harness, runtime, platform, target
 
 **Dispatcher**:
@@ -29,7 +29,7 @@ The timeline and cost summary produced when a run ends, measured in the host's o
 _Avoid_: summary, metrics
 
 **Worktree**:
-A separate checkout of the target repository on the run's own branch, so the user's checkout stays untouched and runs can go in parallel. An issue run uses one by default; a prompt run works in place unless asked. In Herdr it is a Herdr worktree, shown as its own space; in Orca it is an Orca worktree with its own agent tab.
+A separate checkout of the target repository on the run's own branch, so the user's checkout stays untouched and runs can go in parallel. An issue run uses one by default, except in the Copilot app or VS Code, which choose the session's checkout themselves; a prompt run works in place unless asked. In Herdr it is a Herdr worktree, shown as its own space; in Orca it is an Orca worktree with its own agent tab.
 _Avoid_: sandbox, clone, copy
 
 **Handoff**:

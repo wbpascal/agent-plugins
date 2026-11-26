@@ -1,6 +1,6 @@
 ---
 name: inspect
-description: Proxmox: read-only inspection of clusters, nodes, guests, tasks and logs via Datacenter Manager.
+description: "Proxmox: read-only inspection of clusters, nodes, guests, tasks and logs via Datacenter Manager."
 ---
 
 # Proxmox: read-only inspection

@@ -1,7 +1,7 @@
 ---
 name: run
 description: Run one agent loop (planner, executor, reviewer) on a GitHub issue or a prompt until the reviewer says done.
-argument-hint: [flags] <issue-number> | <prompt> | --resume <slug>   flags: --worktree --in-place --no-plan --executor <model> --reviewer <model> --planner-effort E --executor-effort E --reviewer-effort E --max-passes N
+argument-hint: "[flags] <issue-number> | <prompt> | --resume <slug>   flags: --worktree --in-place --no-plan --executor <model> --reviewer <model> --planner-effort E --executor-effort E --reviewer-effort E --max-passes N"
 disable-model-invocation: true
 ---
 
